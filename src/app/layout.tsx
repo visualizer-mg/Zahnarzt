@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { BoardProvider } from "@/context/BoardContext";
 import Navbar from "@/components/Navbar";
 import "./globals.css";
 
@@ -35,8 +36,10 @@ export default function RootLayout({
         style={{ backgroundColor: "var(--bg-primary)" }}
       >
         <ThemeProvider>
-          <Navbar />
-          <main className="flex-1">{children}</main>
+          <BoardProvider>
+            <Navbar />
+            <main className="flex-1">{children}</main>
+          </BoardProvider>
         </ThemeProvider>
       </body>
     </html>

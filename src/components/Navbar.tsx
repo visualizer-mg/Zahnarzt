@@ -8,6 +8,7 @@ const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: "📊" },
   { label: "Analyse", href: "/analyse", icon: "📈" },
   { label: "Import", href: "/import", icon: "📁" },
+  { label: "Tasks", href: "/tasks", icon: "📋" },
   { label: "Einstellungen", href: "/einstellungen", icon: "⚙️" },
 ];
 
@@ -85,7 +86,7 @@ export default function Navbar() {
                 color: "var(--text-muted)",
               }}
             >
-              v0.0.4
+              v0.0.5
             </span>
             <button
               onClick={toggleTheme}
