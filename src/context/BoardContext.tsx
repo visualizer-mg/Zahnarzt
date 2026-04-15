@@ -445,7 +445,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       ...prev,
       cards: prev.cards.map((c) => {
         if (c.id !== id) return c;
-        let updated = { ...c, archived: true, archivedAt: new Date().toISOString() };
+        let updated: Card = { ...c, archived: true, archivedAt: new Date().toISOString() };
         updated = stampCompleted(updated);
         return updated;
       }),
