@@ -248,6 +248,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   // ── Load from Supabase ──────────
   useEffect(() => {
     async function loadBoard() {
+      if (!supabase) { setLoading(false); return; }
       try {
         const [columnsRes, sprintsRes, cardsRes, teamRes, metaRes] = await Promise.all([
           supabase.from("board_columns").select("*").order("position"),
@@ -306,8 +307,8 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         // Write to Supabase
         const dbRow = cardToDbRow(newCard);
         dbRow.position = prev.cards.length;
-        supabase.from("cards").insert(dbRow).then();
-        supabase.from("board_meta").update({ value: String(prev.nextTicketId + 1) }).eq("key", "nextTicketId").then();
+        supabase?.from("cards").insert(dbRow).then();
+        supabase?.from("board_meta").update({ value: String(prev.nextTicketId + 1) }).eq("key", "nextTicketId").then();
 
         return {
           ...prev,
@@ -346,7 +347,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         if (updates.links !== undefined) dbUpdates.links = updates.links;
         if (updates.subtasks !== undefined) dbUpdates.subtasks = updates.subtasks;
         dbUpdates.completed_at = updated.completedAt;
-        supabase.from("cards").update(dbUpdates).eq("id", id).then();
+        supabase?.from("cards").update(dbUpdates).eq("id", id).then();
 
         return updated;
       });
@@ -359,7 +360,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       ...prev,
       cards: prev.cards.filter((c) => c.id !== id),
     }));
-    supabase.from("cards").delete().eq("id", id).then();
+    supabase?.from("cards").delete().eq("id", id).then();
   }, []);
 
   const moveCard = useCallback((id: string, toColumn: string) => {
@@ -373,7 +374,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         if (toColumn !== "done" && c.column === "done") {
           updated.completedAt = null;
         }
-        supabase.from("cards").update({
+        supabase?.from("cards").update({
           column_id: toColumn,
           completed_at: updated.completedAt,
         }).eq("id", id).then();
@@ -391,7 +392,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         const now = new Date().toISOString();
         let updated: Card = { ...c, archived: true, archivedAt: now };
         updated = stampCompleted(updated);
-        supabase.from("cards").update({
+        supabase?.from("cards").update({
           archived: true,
           archived_at: now,
           completed_at: updated.completedAt,
@@ -412,7 +413,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
           ? { ...c, archived: false, archivedAt: null, column: targetCol }
           : c
       );
-      supabase.from("cards").update({
+      supabase?.from("cards").update({
         archived: false,
         archived_at: null,
         column_id: targetCol,
@@ -432,14 +433,14 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         cards: prev.cards.map((c) => {
           if (c.id !== id) return c;
           if (c.column === "done") {
-            supabase.from("cards").update({
+            supabase?.from("cards").update({
               column_id: firstActive,
               completed_at: null,
             }).eq("id", id).then();
             return { ...c, column: firstActive, completedAt: null };
           } else {
             const updated = stampCompleted({ ...c, column: "done" });
-            supabase.from("cards").update({
+            supabase?.from("cards").update({
               column_id: "done",
               completed_at: updated.completedAt,
             }).eq("id", id).then();
@@ -486,7 +487,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         newCards.splice(globalIndex, 0, updatedCard);
 
         // Update positions in Supabase
-        supabase.from("cards").update({
+        supabase?.from("cards").update({
           column_id: targetColumn,
           completed_at: updatedCard.completedAt,
           position: clampedIdx,
@@ -520,8 +521,8 @@ export function BoardProvider({ children }: { children: ReactNode }) {
           );
 
         // Delete source card and update target subtasks in Supabase
-        supabase.from("cards").delete().eq("id", sourceCardId).then();
-        supabase.from("cards").update({ subtasks: newSubtasks }).eq("id", targetCardId).then();
+        supabase?.from("cards").delete().eq("id", sourceCardId).then();
+        supabase?.from("cards").update({ subtasks: newSubtasks }).eq("id", targetCardId).then();
 
         return { ...prev, cards: newCards };
       });
@@ -536,7 +537,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       const card = prev.cards.find((c) => c.id === cardId);
       if (!card) return prev;
       const newSubtasks = [...card.subtasks, { id: `st_${Date.now()}`, title, done: false }];
-      supabase.from("cards").update({ subtasks: newSubtasks }).eq("id", cardId).then();
+      supabase?.from("cards").update({ subtasks: newSubtasks }).eq("id", cardId).then();
       return {
         ...prev,
         cards: prev.cards.map((c) =>
@@ -553,7 +554,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       const newSubtasks = card.subtasks.map((st) =>
         st.id === subtaskId ? { ...st, done: !st.done } : st
       );
-      supabase.from("cards").update({ subtasks: newSubtasks }).eq("id", cardId).then();
+      supabase?.from("cards").update({ subtasks: newSubtasks }).eq("id", cardId).then();
       return {
         ...prev,
         cards: prev.cards.map((c) =>
@@ -568,7 +569,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       const card = prev.cards.find((c) => c.id === cardId);
       if (!card) return prev;
       const newSubtasks = card.subtasks.filter((st) => st.id !== subtaskId);
-      supabase.from("cards").update({ subtasks: newSubtasks }).eq("id", cardId).then();
+      supabase?.from("cards").update({ subtasks: newSubtasks }).eq("id", cardId).then();
       return {
         ...prev,
         cards: prev.cards.map((c) =>
@@ -582,16 +583,16 @@ export function BoardProvider({ children }: { children: ReactNode }) {
 
   const addSprint = useCallback((name: string) => {
     setBoard((prev) => {
-      supabase.from("sprints").insert({ name, position: prev.sprints.length }).then();
+      supabase?.from("sprints").insert({ name, position: prev.sprints.length }).then();
       return { ...prev, sprints: [...prev.sprints, name] };
     });
   }, []);
 
   const removeSprint = useCallback((name: string) => {
     setBoard((prev) => {
-      supabase.from("sprints").delete().eq("name", name).then();
+      supabase?.from("sprints").delete().eq("name", name).then();
       // Clear sprint from cards that used it
-      supabase.from("cards").update({ sprint: null }).eq("sprint", name).then();
+      supabase?.from("cards").update({ sprint: null }).eq("sprint", name).then();
       return {
         ...prev,
         sprints: prev.sprints.filter((s) => s !== name),
@@ -606,14 +607,14 @@ export function BoardProvider({ children }: { children: ReactNode }) {
 
   const addTeamMember = useCallback((name: string) => {
     setBoard((prev) => {
-      supabase.from("team_members").insert({ name }).then();
+      supabase?.from("team_members").insert({ name }).then();
       return { ...prev, team: [...(prev.team || []), name] };
     });
   }, []);
 
   const removeTeamMember = useCallback((name: string) => {
     setBoard((prev) => {
-      supabase.from("team_members").delete().eq("name", name).then();
+      supabase?.from("team_members").delete().eq("name", name).then();
       return { ...prev, team: (prev.team || []).filter((m) => m !== name) };
     });
   }, []);
@@ -622,7 +623,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
 
   const addColumn = useCallback((col: ColumnDef) => {
     setBoard((prev) => {
-      supabase.from("board_columns").insert({
+      supabase?.from("board_columns").insert({
         id: col.id,
         label: col.label,
         icon: col.icon,
@@ -636,9 +637,9 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   const removeColumn = useCallback((colId: string) => {
     if (colId === "done" || colId === "backlog") return;
     setBoard((prev) => {
-      supabase.from("board_columns").delete().eq("id", colId).then();
+      supabase?.from("board_columns").delete().eq("id", colId).then();
       // Move cards from deleted column to backlog
-      supabase.from("cards").update({ column_id: "backlog" }).eq("column_id", colId).then();
+      supabase?.from("cards").update({ column_id: "backlog" }).eq("column_id", colId).then();
       return {
         ...prev,
         columns: prev.columns.filter((c) => c.id !== colId),
@@ -656,7 +657,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         if (updates.label !== undefined) dbUpdates.label = updates.label;
         if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
         if (updates.color !== undefined) dbUpdates.color = updates.color;
-        supabase.from("board_columns").update(dbUpdates).eq("id", colId).then();
+        supabase?.from("board_columns").update(dbUpdates).eq("id", colId).then();
         return {
           ...prev,
           columns: prev.columns.map((c) =>
