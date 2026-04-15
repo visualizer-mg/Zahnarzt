@@ -9,6 +9,7 @@ import {
   CardType,
   useBoard,
 } from "@/context/BoardContext";
+import DeleteDialog from "@/components/tasks/DeleteDialog";
 
 interface BacklogViewProps {
   onEditCard: (card: Card) => void;
@@ -22,13 +23,14 @@ interface DragOverInfo {
 }
 
 export default function BacklogView({ onEditCard, onOpenNote, onNewCard }: BacklogViewProps) {
-  const { board, deleteCard, restoreCard, moveCard, toggleDone, moveCardToPosition } = useBoard();
+  const { board, deleteCard, archiveCard, restoreCard, moveCard, toggleDone, moveCardToPosition } = useBoard();
   const [search, setSearch] = useState("");
   const [areaFilter, setAreaFilter] = useState("");
   const [sort, setSort] = useState<"newest" | "oldest" | "ticket">("newest");
   const [showArchive, setShowArchive] = useState(false);
   const [colPickerCard, setColPickerCard] = useState<string | null>(null);
   const [dragOverInfo, setDragOverInfo] = useState<DragOverInfo | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Card | null>(null);
   const dragCardId = useRef<string | null>(null);
 
   // Get all backlog cards (not archived)
@@ -355,9 +357,7 @@ export default function BacklogView({ onEditCard, onOpenNote, onNewCard }: Backl
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (confirm(`"${card.title}" dauerhaft loeschen?`)) {
-                  deleteCard(card.id);
-                }
+                setDeleteTarget(card);
               }}
               className="text-xs px-2 py-1 rounded"
               style={{
@@ -527,6 +527,22 @@ export default function BacklogView({ onEditCard, onOpenNote, onNewCard }: Backl
           </>
         )}
       </div>
+
+      {/* Delete Dialog */}
+      {deleteTarget && (
+        <DeleteDialog
+          title={deleteTarget.title}
+          onArchive={() => {
+            archiveCard(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+          onDelete={() => {
+            deleteCard(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   );
 }

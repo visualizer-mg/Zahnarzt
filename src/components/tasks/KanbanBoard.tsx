@@ -7,6 +7,7 @@ import {
   useBoard,
 } from "@/context/BoardContext";
 import TaskCard from "@/components/tasks/TaskCard";
+import DeleteDialog from "@/components/tasks/DeleteDialog";
 
 interface KanbanBoardProps {
   onEditCard: (card: Card) => void;
@@ -16,8 +17,8 @@ interface KanbanBoardProps {
 
 interface DragOverInfo {
   colId: string;
-  cardId: string | null;  // null = empty column or after last card
-  position: "before" | "after";
+  cardId: string | null;
+  position: "before" | "after" | "subtask";
 }
 
 export default function KanbanBoard({
@@ -25,13 +26,13 @@ export default function KanbanBoard({
   onOpenNote,
   onNewCard,
 }: KanbanBoardProps) {
-  const { board, moveCard, moveCardToPosition, archiveCard, addColumn } = useBoard();
+  const { board, moveCard, moveCardToPosition, convertToSubtask, archiveCard, deleteCard, addColumn } = useBoard();
   const [dragOverInfo, setDragOverInfo] = useState<DragOverInfo | null>(null);
   const [showAddCol, setShowAddCol] = useState(false);
   const [newColName, setNewColName] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Card | null>(null);
   const dragCardId = useRef<string | null>(null);
 
-  // Filter out archived cards
   const activeCards = board.cards.filter((c) => !c.archived);
 
   const handleDragStart = useCallback((cardId: string) => {
@@ -44,11 +45,18 @@ export default function KanbanBoard({
       e.stopPropagation();
       e.dataTransfer.dropEffect = "move";
 
+      // Don't show subtask zone when dragging over self
+      if (dragCardId.current === cardId) return;
+
       const rect = e.currentTarget.getBoundingClientRect();
       const y = e.clientY - rect.top;
       const ratio = y / rect.height;
-      // Top 28% → insert before, bottom 28% → insert after, middle = keep current
-      const position = ratio < 0.28 ? "before" : "after";
+
+      // Top 28% = before, middle 44% = subtask, bottom 28% = after
+      let position: "before" | "after" | "subtask";
+      if (ratio < 0.28) position = "before";
+      else if (ratio > 0.72) position = "after";
+      else position = "subtask";
 
       setDragOverInfo((prev) => {
         if (prev?.colId === colId && prev?.cardId === cardId && prev?.position === position) {
@@ -64,7 +72,6 @@ export default function KanbanBoard({
     (e: React.DragEvent, colId: string) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      // Only set if not already over a card in this column
       setDragOverInfo((prev) => {
         if (prev?.colId === colId && prev?.cardId !== null) return prev;
         return { colId, cardId: null, position: "after" };
@@ -85,27 +92,29 @@ export default function KanbanBoard({
       const colCards = activeCards.filter((c) => c.column === colId);
 
       if (dragOverInfo && dragOverInfo.colId === colId && dragOverInfo.cardId) {
-        // Insert relative to a specific card
-        const targetIdx = colCards.findIndex((c) => c.id === dragOverInfo.cardId);
-        if (targetIdx !== -1) {
-          const insertIdx = dragOverInfo.position === "before" ? targetIdx : targetIdx + 1;
-          moveCardToPosition(cardId, colId, insertIdx);
+        if (dragOverInfo.position === "subtask") {
+          // Convert dragged card to subtask of target card
+          convertToSubtask(cardId, dragOverInfo.cardId);
         } else {
-          moveCardToPosition(cardId, colId, colCards.length);
+          const targetIdx = colCards.findIndex((c) => c.id === dragOverInfo.cardId);
+          if (targetIdx !== -1) {
+            const insertIdx = dragOverInfo.position === "before" ? targetIdx : targetIdx + 1;
+            moveCardToPosition(cardId, colId, insertIdx);
+          } else {
+            moveCardToPosition(cardId, colId, colCards.length);
+          }
         }
       } else {
-        // Drop on empty column or column background → append
         moveCardToPosition(cardId, colId, colCards.length);
       }
 
       dragCardId.current = null;
       setDragOverInfo(null);
     },
-    [activeCards, dragOverInfo, moveCardToPosition]
+    [activeCards, dragOverInfo, moveCardToPosition, convertToSubtask]
   );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
-    // Only clear if leaving the column entirely
     const related = e.relatedTarget as HTMLElement;
     if (!e.currentTarget.contains(related)) {
       setDragOverInfo(null);
@@ -190,7 +199,6 @@ export default function KanbanBoard({
                   {colCards.length}
                 </span>
               </div>
-              {/* Archive all button for Done column */}
               {col.id === "done" && colCards.length > 0 && (
                 <button
                   onClick={() => {
@@ -212,7 +220,7 @@ export default function KanbanBoard({
 
             {/* Cards */}
             <div className="flex-1 p-2 overflow-y-auto">
-              {colCards.map((card, idx) => {
+              {colCards.map((card) => {
                 const showBefore =
                   isDragOver &&
                   dragOverInfo?.cardId === card.id &&
@@ -221,11 +229,21 @@ export default function KanbanBoard({
                   isDragOver &&
                   dragOverInfo?.cardId === card.id &&
                   dragOverInfo?.position === "after";
+                const isSubtaskTarget =
+                  isDragOver &&
+                  dragOverInfo?.cardId === card.id &&
+                  dragOverInfo?.position === "subtask";
 
                 return (
                   <div
                     key={card.id}
                     onDragOver={(e) => handleCardDragOver(e, col.id, card.id)}
+                    style={{
+                      borderRadius: "6px",
+                      outline: isSubtaskTarget ? "2px solid var(--purple)" : "none",
+                      outlineOffset: "-2px",
+                      transition: "outline 0.15s",
+                    }}
                   >
                     {showBefore && renderInsertLine()}
                     <TaskCard
@@ -233,16 +251,15 @@ export default function KanbanBoard({
                       onEdit={onEditCard}
                       onOpenNote={onOpenNote}
                       onDragStart={handleDragStart}
+                      onRequestDelete={(c) => setDeleteTarget(c)}
                     />
                     {showAfter && renderInsertLine()}
                   </div>
                 );
               })}
 
-              {/* Show insert line for empty column or drop at end */}
               {isDragOver && dragOverInfo?.cardId === null && colCards.length === 0 && renderInsertLine()}
 
-              {/* New Card Button */}
               <button
                 onClick={() => onNewCard(col.id)}
                 className="w-full text-left text-sm px-3 py-2 rounded-md transition-colors"
@@ -356,6 +373,22 @@ export default function KanbanBoard({
         )}
       </div>
     </div>
+
+    {/* Delete Dialog */}
+    {deleteTarget && (
+      <DeleteDialog
+        title={deleteTarget.title}
+        onArchive={() => {
+          archiveCard(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        onDelete={() => {
+          deleteCard(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        onClose={() => setDeleteTarget(null)}
+      />
+    )}
     </div>
   );
 }

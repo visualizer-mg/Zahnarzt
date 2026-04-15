@@ -329,6 +329,7 @@ interface BoardContextType {
   addTeamMember: (name: string) => void;
   removeTeamMember: (name: string) => void;
   moveCardToPosition: (cardId: string, targetColumn: string, targetIndex: number) => void;
+  convertToSubtask: (sourceCardId: string, targetCardId: string) => void;
   addColumn: (col: ColumnDef) => void;
   removeColumn: (colId: string) => void;
   updateColumn: (colId: string, updates: Partial<ColumnDef>) => void;
@@ -353,6 +354,7 @@ const BoardContext = createContext<BoardContextType>({
   addTeamMember: noop,
   removeTeamMember: noop,
   moveCardToPosition: noop,
+  convertToSubtask: noop,
   addColumn: noop,
   removeColumn: noop,
   updateColumn: noop,
@@ -559,6 +561,43 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  // ── Convert Card to Subtask ────
+
+  const convertToSubtask = useCallback(
+    (sourceCardId: string, targetCardId: string) => {
+      if (sourceCardId === targetCardId) return;
+      setBoard((prev) => {
+        const sourceCard = prev.cards.find((c) => c.id === sourceCardId);
+        const targetCard = prev.cards.find((c) => c.id === targetCardId);
+        if (!sourceCard || !targetCard) return prev;
+
+        // Remove source card from array
+        const newCards = prev.cards.filter((c) => c.id !== sourceCardId);
+
+        // Add as subtask to target card
+        return {
+          ...prev,
+          cards: newCards.map((c) =>
+            c.id === targetCardId
+              ? {
+                  ...c,
+                  subtasks: [
+                    ...c.subtasks,
+                    {
+                      id: `st_${Date.now()}`,
+                      title: sourceCard.title,
+                      done: false,
+                    },
+                  ],
+                }
+              : c
+          ),
+        };
+      });
+    },
+    []
+  );
+
   // ── Subtask Actions ───────────
 
   const addSubtask = useCallback((cardId: string, title: string) => {
@@ -701,6 +740,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         addTeamMember,
         removeTeamMember,
         moveCardToPosition,
+        convertToSubtask,
         addColumn,
         removeColumn,
         updateColumn,

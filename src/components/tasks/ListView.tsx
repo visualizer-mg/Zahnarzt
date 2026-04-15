@@ -9,6 +9,7 @@ import {
   CardType,
   useBoard,
 } from "@/context/BoardContext";
+import DeleteDialog from "@/components/tasks/DeleteDialog";
 
 interface ListViewProps {
   onEditCard: (card: Card) => void;
@@ -27,6 +28,7 @@ export default function ListView({ onEditCard, onOpenNote, onNewCard }: ListView
   const [showAddCol, setShowAddCol] = useState(false);
   const [newColName, setNewColName] = useState("");
   const [dragOverInfo, setDragOverInfo] = useState<DragOverInfo | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Card | null>(null);
   const dragCardId = useRef<string | null>(null);
 
   const activeCards = board.cards.filter((c) => !c.archived);
@@ -103,6 +105,21 @@ export default function ListView({ onEditCard, onOpenNote, onNewCard }: ListView
     </tr>
   );
 
+  const colgroup = (
+    <colgroup>
+      <col style={{ width: "32px" }} />
+      <col style={{ width: "36px" }} />
+      <col style={{ width: "20px" }} />
+      <col style={{ width: "52px" }} />
+      <col />
+      <col style={{ width: "100px" }} />
+      <col style={{ width: "78px" }} />
+      <col style={{ width: "82px" }} />
+      <col style={{ width: "92px" }} />
+      <col style={{ width: "80px" }} />
+    </colgroup>
+  );
+
   return (
     <div className="space-y-6">
       {board.columns.filter((c) => c.id !== "backlog").map((col) => {
@@ -149,7 +166,8 @@ export default function ListView({ onEditCard, onOpenNote, onNewCard }: ListView
             </div>
 
             {/* Table */}
-            <table className="w-full">
+            <table className="w-full" style={{ tableLayout: "fixed" }}>
+              {colgroup}
               <thead>
                 <tr
                   className="text-xs border-b"
@@ -158,16 +176,16 @@ export default function ListView({ onEditCard, onOpenNote, onNewCard }: ListView
                     borderColor: "var(--border)",
                   }}
                 >
-                  <th className="text-center px-2 py-2 w-8">✓</th>
-                  <th className="text-left px-2 py-2 w-10">#</th>
-                  <th className="text-left px-2 py-2 w-8">Pri</th>
-                  <th className="text-left px-2 py-2 w-16">Typ</th>
+                  <th className="text-center px-2 py-2">✓</th>
+                  <th className="text-left px-2 py-2">#</th>
+                  <th className="text-left px-2 py-2">Pri</th>
+                  <th className="text-left px-2 py-2">Typ</th>
                   <th className="text-left px-2 py-2">Titel</th>
-                  <th className="text-left px-2 py-2 w-24">Bereich</th>
-                  <th className="text-left px-2 py-2 w-24">Sprint</th>
-                  <th className="text-left px-2 py-2 w-28">Ersteller</th>
-                  <th className="text-left px-2 py-2 w-24">Datum</th>
-                  <th className="text-right px-4 py-2 w-24">Aktionen</th>
+                  <th className="text-left px-2 py-2">Bereich</th>
+                  <th className="text-left px-2 py-2">Sprint</th>
+                  <th className="text-left px-2 py-2">Ersteller</th>
+                  <th className="text-left px-2 py-2">Datum</th>
+                  <th className="text-right px-4 py-2">Aktionen</th>
                 </tr>
               </thead>
               <tbody>
@@ -197,7 +215,6 @@ export default function ListView({ onEditCard, onOpenNote, onNewCard }: ListView
                         }}
                         onClick={() => onEditCard(card)}
                       >
-                        {/* Done Checkbox */}
                         <td className="px-2 py-2.5 text-center">
                           <button
                             onClick={(e) => {
@@ -216,7 +233,7 @@ export default function ListView({ onEditCard, onOpenNote, onNewCard }: ListView
                           </button>
                         </td>
                         <td
-                          className="px-2 py-2.5 text-xs font-mono"
+                          className="px-2 py-2.5 text-xs font-mono truncate"
                           style={{ color: "var(--text-muted)" }}
                         >
                           {card.ticketId}
@@ -244,7 +261,7 @@ export default function ListView({ onEditCard, onOpenNote, onNewCard }: ListView
                           )}
                         </td>
                         <td
-                          className="px-2 py-2.5 text-sm font-medium"
+                          className="px-2 py-2.5 text-sm font-medium truncate"
                           style={{
                             color: "var(--text-primary)",
                             textDecoration: card.column === "done" ? "line-through" : "none",
@@ -261,30 +278,30 @@ export default function ListView({ onEditCard, onOpenNote, onNewCard }: ListView
                           )}
                         </td>
                         <td
-                          className="px-2 py-2.5 text-xs"
+                          className="px-2 py-2.5 text-xs truncate"
                           style={{ color: "var(--text-muted)" }}
                         >
                           {card.area}
                         </td>
                         <td
-                          className="px-2 py-2.5 text-xs"
+                          className="px-2 py-2.5 text-xs truncate"
                           style={{ color: "var(--accent)" }}
                         >
                           {card.sprint}
                         </td>
                         <td
-                          className="px-2 py-2.5 text-xs"
+                          className="px-2 py-2.5 text-xs truncate"
                           style={{ color: "var(--text-secondary)" }}
                         >
                           {card.creator}
                         </td>
                         <td
-                          className="px-2 py-2.5 text-xs"
+                          className="px-2 py-2.5 text-xs truncate"
                           style={{ color: "var(--text-muted)" }}
                         >
                           {card.createdAt}
                         </td>
-                        <td className="px-4 py-2.5 text-right">
+                        <td className="px-2 py-2.5 text-right">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -301,23 +318,7 @@ export default function ListView({ onEditCard, onOpenNote, onNewCard }: ListView
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              archiveCard(card.id);
-                            }}
-                            className="text-xs px-2 py-1 rounded mr-1"
-                            title="Archivieren"
-                            style={{
-                              color: "var(--amber)",
-                              backgroundColor: "var(--bg-tertiary)",
-                            }}
-                          >
-                            📦
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm(`"${card.title}" dauerhaft loeschen?`)) {
-                                deleteCard(card.id);
-                              }
+                              setDeleteTarget(card);
                             }}
                             className="text-xs px-2 py-1 rounded"
                             style={{
@@ -431,6 +432,22 @@ export default function ListView({ onEditCard, onOpenNote, onNewCard }: ListView
             Abbrechen
           </button>
         </div>
+      )}
+
+      {/* Delete Dialog */}
+      {deleteTarget && (
+        <DeleteDialog
+          title={deleteTarget.title}
+          onArchive={() => {
+            archiveCard(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+          onDelete={() => {
+            deleteCard(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+          onClose={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

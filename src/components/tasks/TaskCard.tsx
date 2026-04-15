@@ -17,10 +17,11 @@ interface TaskCardProps {
   onEdit: (card: Card) => void;
   onOpenNote: (card: Card) => void;
   onDragStart?: (cardId: string) => void;
+  onRequestDelete?: (card: Card) => void;
 }
 
-export default function TaskCard({ card, onEdit, onOpenNote, onDragStart }: TaskCardProps) {
-  const { deleteCard, archiveCard, toggleDone, moveCard } = useBoard();
+export default function TaskCard({ card, onEdit, onOpenNote, onDragStart, onRequestDelete }: TaskCardProps) {
+  const { toggleDone, moveCard } = useBoard();
   const colorStyle = card.color
     ? COLOR_MAP[card.color as CardColor]
     : null;
@@ -92,7 +93,7 @@ export default function TaskCard({ card, onEdit, onOpenNote, onDragStart }: Task
           )}
         </div>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {/* Backlog button - only show if not already in backlog */}
+          {/* Backlog button */}
           {card.column !== "backlog" && (
             <button
               onClick={(e) => {
@@ -109,28 +110,14 @@ export default function TaskCard({ card, onEdit, onOpenNote, onDragStart }: Task
               ↓
             </button>
           )}
+          {/* Delete/Archive button — opens dialog */}
           <button
             onClick={(e) => {
               e.stopPropagation();
-              archiveCard(card.id);
+              onRequestDelete?.(card);
             }}
             className="text-xs px-1.5 py-0.5 rounded"
-            title="Archivieren"
-            style={{
-              color: "var(--amber)",
-              backgroundColor: "var(--bg-secondary)",
-            }}
-          >
-            📦
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (confirm(`"${card.title}" dauerhaft loeschen?`)) {
-                deleteCard(card.id);
-              }
-            }}
-            className="text-xs px-1.5 py-0.5 rounded"
+            title="Loeschen / Archivieren"
             style={{
               color: "var(--red)",
               backgroundColor: "var(--bg-secondary)",
