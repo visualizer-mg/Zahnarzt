@@ -8,6 +8,7 @@ import {
   useCallback,
   ReactNode,
 } from "react";
+import { supabase } from "@/lib/supabase-client";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -128,185 +129,54 @@ export const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: "done", label: "Done", icon: "✅", color: "#3fb950" },
 ];
 
-// ── Default Data ───────────────────────────────────────
+// ── Supabase Helpers ─────────────────────────────────
 
-const DEFAULT_BOARD: BoardData = {
-  sprints: ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4"],
-  columns: DEFAULT_COLUMNS,
-  nextTicketId: 7,
-  team: ["Visualizer", "Homer"],
-  cards: [
-    {
-      id: "1",
-      ticketId: 1,
-      title: "Task-Manager fertigstellen",
-      description: "Kanban Board mit allen Views und Features implementieren",
-      area: "Frontend",
-      priority: "high",
-      type: "feature",
-      creator: "Homer & Heinzel",
-      column: "doing",
-      sprint: "Sprint 1",
-      color: "blue",
-      createdAt: "2026-04-14",
-      completedAt: null,
-      archived: false,
-      archivedAt: null,
-      note: "",
-      noteFile: null,
-      links: [],
-      subtasks: [],
-    },
-    {
-      id: "2",
-      ticketId: 2,
-      title: "CSV Import Modul",
-      description: "Datenimport fuer Dampsoft, Z1, Charly, EVIDENT",
-      area: "Backend",
-      priority: "high",
-      type: "feature",
-      creator: "Homer & Heinzel",
-      column: "todo",
-      sprint: "Sprint 2",
-      color: "orange",
-      createdAt: "2026-04-14",
-      completedAt: null,
-      archived: false,
-      archivedAt: null,
-      note: "",
-      noteFile: null,
-      links: [],
-      subtasks: [],
-    },
-    {
-      id: "3",
-      ticketId: 3,
-      title: "Dashboard mit echten Daten",
-      description: "KPI-Karten und Charts nach Import befuellen",
-      area: "Frontend",
-      priority: "medium",
-      type: "feature",
-      creator: "Homer & Heinzel",
-      column: "todo",
-      sprint: "Sprint 2",
-      color: "green",
-      createdAt: "2026-04-14",
-      completedAt: null,
-      archived: false,
-      archivedAt: null,
-      note: "",
-      noteFile: null,
-      links: [],
-      subtasks: [],
-    },
-    {
-      id: "4",
-      ticketId: 4,
-      title: "Supabase Integration",
-      description: "Datenbank fuer User, Board und Notes einrichten",
-      area: "Backend",
-      priority: "medium",
-      type: "feature",
-      creator: "Homer & Heinzel",
-      column: "ideas",
-      sprint: "",
-      color: "purple",
-      createdAt: "2026-04-14",
-      completedAt: null,
-      archived: false,
-      archivedAt: null,
-      note: "",
-      noteFile: null,
-      links: [],
-      subtasks: [],
-    },
-    {
-      id: "5",
-      ticketId: 5,
-      title: "Git & GitHub Setup",
-      description: "Repository erstellt, Vercel connected",
-      area: "DevOps",
-      priority: "high",
-      type: "feature",
-      creator: "Homer & Heinzel",
-      column: "done",
-      sprint: "Sprint 1",
-      color: "green",
-      createdAt: "2026-04-13",
-      completedAt: "2026-04-13",
-      archived: false,
-      archivedAt: null,
-      note: "",
-      noteFile: null,
-      links: [],
-      subtasks: [],
-    },
-    {
-      id: "6",
-      ticketId: 6,
-      title: "Theme System",
-      description: "Dark/Light Mode mit GitHub Theme Farben",
-      area: "Frontend",
-      priority: "high",
-      type: "feature",
-      creator: "Homer & Heinzel",
-      column: "done",
-      sprint: "Sprint 1",
-      color: "blue",
-      createdAt: "2026-04-13",
-      completedAt: "2026-04-13",
-      archived: false,
-      archivedAt: null,
-      note: "",
-      noteFile: null,
-      links: [],
-      subtasks: [],
-    },
-  ],
-};
-
-// ── Migration helper ──────────────────────────────────
-
-function migrateBoard(data: Record<string, unknown>): BoardData {
-  const d = data as Record<string, unknown>;
-  const cards = (d.cards as Record<string, unknown>[]) || [];
-  let nextId = (d.nextTicketId as number) || cards.length + 1;
-
-  const migratedCards: Card[] = cards.map((c, i) => {
-    const card = c as Record<string, unknown>;
-    if (!card.ticketId) {
-      card.ticketId = i + 1;
-      if (i + 1 >= nextId) nextId = i + 2;
-    }
-    return {
-      id: (card.id as string) || Date.now().toString(),
-      ticketId: card.ticketId as number,
-      title: (card.title as string) || "",
-      description: (card.description as string) || "",
-      area: (card.area as string) || "",
-      priority: (card.priority as Priority) || "medium",
-      type: (card.type as CardType | "") || "",
-      creator: (card.creator as string) || "",
-      column: (card.column as string) || "todo",
-      sprint: (card.sprint as string) || "",
-      color: (card.color as CardColor | "") || "",
-      createdAt: (card.createdAt as string) || new Date().toISOString().split("T")[0],
-      completedAt: (card.completedAt as string | null) ?? null,
-      archived: (card.archived as boolean) ?? false,
-      archivedAt: (card.archivedAt as string | null) ?? null,
-      note: (card.note as string) || "",
-      noteFile: (card.noteFile as string | null) ?? null,
-      links: (card.links as CardLink[]) || [],
-      subtasks: (card.subtasks as Subtask[]) || [],
-    };
-  });
-
+function dbCardToCard(row: Record<string, unknown>): Card {
   return {
-    sprints: (d.sprints as string[]) || DEFAULT_BOARD.sprints,
-    columns: (d.columns as ColumnDef[]) || DEFAULT_COLUMNS,
-    nextTicketId: nextId,
-    team: (d.team as string[]) || ["Visualizer", "Homer"],
-    cards: migratedCards,
+    id: row.id as string,
+    ticketId: row.ticket_id as number,
+    title: row.title as string,
+    description: (row.description as string) || "",
+    area: (row.area as string) || "",
+    priority: (row.priority as Priority) || "medium",
+    type: (row.type as CardType | "") || "",
+    creator: (row.creator as string) || "",
+    column: (row.column_id as string) || "todo",
+    sprint: (row.sprint as string) || "",
+    color: (row.color as CardColor | "") || "",
+    createdAt: (row.created_at as string) || "",
+    completedAt: (row.completed_at as string) || null,
+    archived: (row.archived as boolean) || false,
+    archivedAt: (row.archived_at as string) || null,
+    note: (row.note as string) || "",
+    noteFile: (row.note_file as string) || null,
+    links: (row.links as CardLink[]) || [],
+    subtasks: (row.subtasks as Subtask[]) || [],
+  };
+}
+
+function cardToDbRow(card: Card) {
+  return {
+    id: card.id,
+    ticket_id: card.ticketId,
+    title: card.title,
+    description: card.description,
+    area: card.area,
+    priority: card.priority,
+    type: card.type || null,
+    creator: card.creator,
+    column_id: card.column,
+    sprint: card.sprint || null,
+    color: card.color || null,
+    created_at: card.createdAt,
+    completed_at: card.completedAt,
+    archived: card.archived,
+    archived_at: card.archivedAt,
+    note: card.note,
+    note_file: card.noteFile,
+    links: card.links,
+    subtasks: card.subtasks,
+    position: 0,
   };
 }
 
@@ -314,6 +184,7 @@ function migrateBoard(data: Record<string, unknown>): BoardData {
 
 interface BoardContextType {
   board: BoardData;
+  loading: boolean;
   addCard: (card: Omit<Card, "id" | "createdAt" | "ticketId" | "completedAt" | "archived" | "archivedAt">) => void;
   updateCard: (id: string, updates: Partial<Card>) => void;
   deleteCard: (id: string) => void;
@@ -339,6 +210,7 @@ interface BoardContextType {
 const noop = (() => {}) as never;
 const BoardContext = createContext<BoardContextType>({
   board: { sprints: [], columns: [], nextTicketId: 1, cards: [], team: [] },
+  loading: true,
   addCard: noop,
   updateCard: noop,
   deleteCard: noop,
@@ -364,31 +236,48 @@ const BoardContext = createContext<BoardContextType>({
 // ── Provider ───────────────────────────────────────────
 
 export function BoardProvider({ children }: { children: ReactNode }) {
-  const [board, setBoard] = useState<BoardData>(DEFAULT_BOARD);
-  const [mounted, setMounted] = useState(false);
+  const [board, setBoard] = useState<BoardData>({
+    sprints: [],
+    columns: [],
+    nextTicketId: 1,
+    cards: [],
+    team: [],
+  });
+  const [loading, setLoading] = useState(true);
 
-  // Load from localStorage
+  // ── Load from Supabase ──────────
   useEffect(() => {
-    const saved = localStorage.getItem("zahnarzt-board");
-    if (saved) {
+    async function loadBoard() {
       try {
-        const parsed = JSON.parse(saved);
-        if (parsed.cards) {
-          setBoard(migrateBoard(parsed));
-        }
-      } catch {
-        // ignore parse errors
+        const [columnsRes, sprintsRes, cardsRes, teamRes, metaRes] = await Promise.all([
+          supabase.from("board_columns").select("*").order("position"),
+          supabase.from("sprints").select("*").order("position"),
+          supabase.from("cards").select("*").order("position"),
+          supabase.from("team_members").select("*"),
+          supabase.from("board_meta").select("*").eq("key", "nextTicketId").single(),
+        ]);
+
+        const columns: ColumnDef[] = (columnsRes.data || []).map((r: Record<string, unknown>) => ({
+          id: r.id as string,
+          label: r.label as string,
+          icon: (r.icon as string) || "📋",
+          color: (r.color as string) || "#8b949e",
+        }));
+
+        const sprints: string[] = (sprintsRes.data || []).map((r: Record<string, unknown>) => r.name as string);
+        const cards: Card[] = (cardsRes.data || []).map(dbCardToCard);
+        const team: string[] = (teamRes.data || []).map((r: Record<string, unknown>) => r.name as string);
+        const nextTicketId = metaRes.data ? parseInt(metaRes.data.value as string, 10) : 1;
+
+        setBoard({ columns, sprints, cards, team, nextTicketId });
+      } catch (err) {
+        console.error("Failed to load board from Supabase:", err);
+      } finally {
+        setLoading(false);
       }
     }
-    setMounted(true);
+    loadBoard();
   }, []);
-
-  // Save to localStorage
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem("zahnarzt-board", JSON.stringify(board));
-    }
-  }, [board, mounted]);
 
   // ── Helpers ───────────────────
 
@@ -413,6 +302,13 @@ export function BoardProvider({ children }: { children: ReactNode }) {
           archived: false,
           archivedAt: null,
         };
+
+        // Write to Supabase
+        const dbRow = cardToDbRow(newCard);
+        dbRow.position = prev.cards.length;
+        supabase.from("cards").insert(dbRow).then();
+        supabase.from("board_meta").update({ value: String(prev.nextTicketId + 1) }).eq("key", "nextTicketId").then();
+
         return {
           ...prev,
           nextTicketId: prev.nextTicketId + 1,
@@ -424,9 +320,8 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   );
 
   const updateCard = useCallback((id: string, updates: Partial<Card>) => {
-    setBoard((prev) => ({
-      ...prev,
-      cards: prev.cards.map((c) => {
+    setBoard((prev) => {
+      const newCards = prev.cards.map((c) => {
         if (c.id !== id) return c;
         let updated = { ...c, ...updates };
         if (updates.column === "done" && c.column !== "done") {
@@ -435,9 +330,28 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         if (updates.column && updates.column !== "done" && c.column === "done") {
           updated.completedAt = null;
         }
+
+        // Write to Supabase
+        const dbUpdates: Record<string, unknown> = {};
+        if (updates.title !== undefined) dbUpdates.title = updates.title;
+        if (updates.description !== undefined) dbUpdates.description = updates.description;
+        if (updates.area !== undefined) dbUpdates.area = updates.area;
+        if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+        if (updates.type !== undefined) dbUpdates.type = updates.type || null;
+        if (updates.creator !== undefined) dbUpdates.creator = updates.creator;
+        if (updates.column !== undefined) dbUpdates.column_id = updates.column;
+        if (updates.sprint !== undefined) dbUpdates.sprint = updates.sprint || null;
+        if (updates.color !== undefined) dbUpdates.color = updates.color || null;
+        if (updates.note !== undefined) dbUpdates.note = updates.note;
+        if (updates.links !== undefined) dbUpdates.links = updates.links;
+        if (updates.subtasks !== undefined) dbUpdates.subtasks = updates.subtasks;
+        dbUpdates.completed_at = updated.completedAt;
+        supabase.from("cards").update(dbUpdates).eq("id", id).then();
+
         return updated;
-      }),
-    }));
+      });
+      return { ...prev, cards: newCards };
+    });
   }, []);
 
   const deleteCard = useCallback((id: string) => {
@@ -445,12 +359,12 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       ...prev,
       cards: prev.cards.filter((c) => c.id !== id),
     }));
+    supabase.from("cards").delete().eq("id", id).then();
   }, []);
 
   const moveCard = useCallback((id: string, toColumn: string) => {
-    setBoard((prev) => ({
-      ...prev,
-      cards: prev.cards.map((c) => {
+    setBoard((prev) => {
+      const newCards = prev.cards.map((c) => {
         if (c.id !== id) return c;
         let updated = { ...c, column: toColumn };
         if (toColumn === "done" && c.column !== "done") {
@@ -459,9 +373,14 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         if (toColumn !== "done" && c.column === "done") {
           updated.completedAt = null;
         }
+        supabase.from("cards").update({
+          column_id: toColumn,
+          completed_at: updated.completedAt,
+        }).eq("id", id).then();
         return updated;
-      }),
-    }));
+      });
+      return { ...prev, cards: newCards };
+    });
   }, []);
 
   const archiveCard = useCallback((id: string) => {
@@ -469,8 +388,14 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       ...prev,
       cards: prev.cards.map((c) => {
         if (c.id !== id) return c;
-        let updated: Card = { ...c, archived: true, archivedAt: new Date().toISOString() };
+        const now = new Date().toISOString();
+        let updated: Card = { ...c, archived: true, archivedAt: now };
         updated = stampCompleted(updated);
+        supabase.from("cards").update({
+          archived: true,
+          archived_at: now,
+          completed_at: updated.completedAt,
+        }).eq("id", id).then();
         return updated;
       }),
     }));
@@ -482,14 +407,17 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         (col) => col.id !== "backlog" && col.id !== "done"
       );
       const targetCol = activeCols[0]?.id || "todo";
-      return {
-        ...prev,
-        cards: prev.cards.map((c) =>
-          c.id === id
-            ? { ...c, archived: false, archivedAt: null, column: targetCol }
-            : c
-        ),
-      };
+      const newCards = prev.cards.map((c) =>
+        c.id === id
+          ? { ...c, archived: false, archivedAt: null, column: targetCol }
+          : c
+      );
+      supabase.from("cards").update({
+        archived: false,
+        archived_at: null,
+        column_id: targetCol,
+      }).eq("id", id).then();
+      return { ...prev, cards: newCards };
     });
   }, []);
 
@@ -504,9 +432,18 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         cards: prev.cards.map((c) => {
           if (c.id !== id) return c;
           if (c.column === "done") {
+            supabase.from("cards").update({
+              column_id: firstActive,
+              completed_at: null,
+            }).eq("id", id).then();
             return { ...c, column: firstActive, completedAt: null };
           } else {
-            return stampCompleted({ ...c, column: "done" });
+            const updated = stampCompleted({ ...c, column: "done" });
+            supabase.from("cards").update({
+              column_id: "done",
+              completed_at: updated.completedAt,
+            }).eq("id", id).then();
+            return updated;
           }
         }),
       };
@@ -522,10 +459,8 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         if (cardIdx === -1) return prev;
 
         const card = prev.cards[cardIdx];
-        // Remove card from current position
         const withoutCard = prev.cards.filter((c) => c.id !== cardId);
 
-        // Update column + completedAt if needed
         let updatedCard = { ...card, column: targetColumn };
         if (targetColumn === "done" && card.column !== "done") {
           updatedCard = stampCompleted(updatedCard);
@@ -534,26 +469,28 @@ export function BoardProvider({ children }: { children: ReactNode }) {
           updatedCard.completedAt = null;
         }
 
-        // Get cards in target column to find actual insertion index
         const colCards = withoutCard.filter((c) => c.column === targetColumn && !c.archived);
         const clampedIdx = Math.min(targetIndex, colCards.length);
 
-        // Find the global index to insert at
         let globalIndex: number;
         if (clampedIdx >= colCards.length) {
-          // Insert after the last card in this column
           const lastColCard = colCards[colCards.length - 1];
           globalIndex = lastColCard
             ? withoutCard.indexOf(lastColCard) + 1
             : withoutCard.length;
         } else {
-          // Insert before the card at clampedIdx
           globalIndex = withoutCard.indexOf(colCards[clampedIdx]);
         }
 
-        // Insert card at new position
         const newCards = [...withoutCard];
         newCards.splice(globalIndex, 0, updatedCard);
+
+        // Update positions in Supabase
+        supabase.from("cards").update({
+          column_id: targetColumn,
+          completed_at: updatedCard.completedAt,
+          position: clampedIdx,
+        }).eq("id", cardId).then();
 
         return { ...prev, cards: newCards };
       });
@@ -571,28 +508,22 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         const targetCard = prev.cards.find((c) => c.id === targetCardId);
         if (!sourceCard || !targetCard) return prev;
 
-        // Remove source card from array
-        const newCards = prev.cards.filter((c) => c.id !== sourceCardId);
+        const newSubtasks = [
+          ...targetCard.subtasks,
+          { id: `st_${Date.now()}`, title: sourceCard.title, done: false },
+        ];
 
-        // Add as subtask to target card
-        return {
-          ...prev,
-          cards: newCards.map((c) =>
-            c.id === targetCardId
-              ? {
-                  ...c,
-                  subtasks: [
-                    ...c.subtasks,
-                    {
-                      id: `st_${Date.now()}`,
-                      title: sourceCard.title,
-                      done: false,
-                    },
-                  ],
-                }
-              : c
-          ),
-        };
+        const newCards = prev.cards
+          .filter((c) => c.id !== sourceCardId)
+          .map((c) =>
+            c.id === targetCardId ? { ...c, subtasks: newSubtasks } : c
+          );
+
+        // Delete source card and update target subtasks in Supabase
+        supabase.from("cards").delete().eq("id", sourceCardId).then();
+        supabase.from("cards").update({ subtasks: newSubtasks }).eq("id", targetCardId).then();
+
+        return { ...prev, cards: newCards };
       });
     },
     []
@@ -601,112 +532,138 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   // ── Subtask Actions ───────────
 
   const addSubtask = useCallback((cardId: string, title: string) => {
-    setBoard((prev) => ({
-      ...prev,
-      cards: prev.cards.map((c) =>
-        c.id === cardId
-          ? {
-              ...c,
-              subtasks: [
-                ...c.subtasks,
-                { id: `st_${Date.now()}`, title, done: false },
-              ],
-            }
-          : c
-      ),
-    }));
+    setBoard((prev) => {
+      const card = prev.cards.find((c) => c.id === cardId);
+      if (!card) return prev;
+      const newSubtasks = [...card.subtasks, { id: `st_${Date.now()}`, title, done: false }];
+      supabase.from("cards").update({ subtasks: newSubtasks }).eq("id", cardId).then();
+      return {
+        ...prev,
+        cards: prev.cards.map((c) =>
+          c.id === cardId ? { ...c, subtasks: newSubtasks } : c
+        ),
+      };
+    });
   }, []);
 
   const toggleSubtask = useCallback((cardId: string, subtaskId: string) => {
-    setBoard((prev) => ({
-      ...prev,
-      cards: prev.cards.map((c) =>
-        c.id === cardId
-          ? {
-              ...c,
-              subtasks: c.subtasks.map((st) =>
-                st.id === subtaskId ? { ...st, done: !st.done } : st
-              ),
-            }
-          : c
-      ),
-    }));
+    setBoard((prev) => {
+      const card = prev.cards.find((c) => c.id === cardId);
+      if (!card) return prev;
+      const newSubtasks = card.subtasks.map((st) =>
+        st.id === subtaskId ? { ...st, done: !st.done } : st
+      );
+      supabase.from("cards").update({ subtasks: newSubtasks }).eq("id", cardId).then();
+      return {
+        ...prev,
+        cards: prev.cards.map((c) =>
+          c.id === cardId ? { ...c, subtasks: newSubtasks } : c
+        ),
+      };
+    });
   }, []);
 
   const removeSubtask = useCallback((cardId: string, subtaskId: string) => {
-    setBoard((prev) => ({
-      ...prev,
-      cards: prev.cards.map((c) =>
-        c.id === cardId
-          ? { ...c, subtasks: c.subtasks.filter((st) => st.id !== subtaskId) }
-          : c
-      ),
-    }));
+    setBoard((prev) => {
+      const card = prev.cards.find((c) => c.id === cardId);
+      if (!card) return prev;
+      const newSubtasks = card.subtasks.filter((st) => st.id !== subtaskId);
+      supabase.from("cards").update({ subtasks: newSubtasks }).eq("id", cardId).then();
+      return {
+        ...prev,
+        cards: prev.cards.map((c) =>
+          c.id === cardId ? { ...c, subtasks: newSubtasks } : c
+        ),
+      };
+    });
   }, []);
 
   // ── Sprint Actions ────────────
 
   const addSprint = useCallback((name: string) => {
-    setBoard((prev) => ({
-      ...prev,
-      sprints: [...prev.sprints, name],
-    }));
+    setBoard((prev) => {
+      supabase.from("sprints").insert({ name, position: prev.sprints.length }).then();
+      return { ...prev, sprints: [...prev.sprints, name] };
+    });
   }, []);
 
   const removeSprint = useCallback((name: string) => {
-    setBoard((prev) => ({
-      ...prev,
-      sprints: prev.sprints.filter((s) => s !== name),
-      cards: prev.cards.map((c) =>
-        c.sprint === name ? { ...c, sprint: "" } : c
-      ),
-    }));
+    setBoard((prev) => {
+      supabase.from("sprints").delete().eq("name", name).then();
+      // Clear sprint from cards that used it
+      supabase.from("cards").update({ sprint: null }).eq("sprint", name).then();
+      return {
+        ...prev,
+        sprints: prev.sprints.filter((s) => s !== name),
+        cards: prev.cards.map((c) =>
+          c.sprint === name ? { ...c, sprint: "" } : c
+        ),
+      };
+    });
   }, []);
 
   // ── Team Actions ──────────────
 
   const addTeamMember = useCallback((name: string) => {
-    setBoard((prev) => ({
-      ...prev,
-      team: [...(prev.team || []), name],
-    }));
+    setBoard((prev) => {
+      supabase.from("team_members").insert({ name }).then();
+      return { ...prev, team: [...(prev.team || []), name] };
+    });
   }, []);
 
   const removeTeamMember = useCallback((name: string) => {
-    setBoard((prev) => ({
-      ...prev,
-      team: (prev.team || []).filter((m) => m !== name),
-    }));
+    setBoard((prev) => {
+      supabase.from("team_members").delete().eq("name", name).then();
+      return { ...prev, team: (prev.team || []).filter((m) => m !== name) };
+    });
   }, []);
 
   // ── Column Actions ────────────
 
   const addColumn = useCallback((col: ColumnDef) => {
-    setBoard((prev) => ({
-      ...prev,
-      columns: [...prev.columns, col],
-    }));
+    setBoard((prev) => {
+      supabase.from("board_columns").insert({
+        id: col.id,
+        label: col.label,
+        icon: col.icon,
+        color: col.color,
+        position: prev.columns.length,
+      }).then();
+      return { ...prev, columns: [...prev.columns, col] };
+    });
   }, []);
 
   const removeColumn = useCallback((colId: string) => {
     if (colId === "done" || colId === "backlog") return;
-    setBoard((prev) => ({
-      ...prev,
-      columns: prev.columns.filter((c) => c.id !== colId),
-      cards: prev.cards.map((c) =>
-        c.column === colId ? { ...c, column: "backlog" } : c
-      ),
-    }));
+    setBoard((prev) => {
+      supabase.from("board_columns").delete().eq("id", colId).then();
+      // Move cards from deleted column to backlog
+      supabase.from("cards").update({ column_id: "backlog" }).eq("column_id", colId).then();
+      return {
+        ...prev,
+        columns: prev.columns.filter((c) => c.id !== colId),
+        cards: prev.cards.map((c) =>
+          c.column === colId ? { ...c, column: "backlog" } : c
+        ),
+      };
+    });
   }, []);
 
   const updateColumn = useCallback(
     (colId: string, updates: Partial<ColumnDef>) => {
-      setBoard((prev) => ({
-        ...prev,
-        columns: prev.columns.map((c) =>
-          c.id === colId ? { ...c, ...updates } : c
-        ),
-      }));
+      setBoard((prev) => {
+        const dbUpdates: Record<string, unknown> = {};
+        if (updates.label !== undefined) dbUpdates.label = updates.label;
+        if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
+        if (updates.color !== undefined) dbUpdates.color = updates.color;
+        supabase.from("board_columns").update(dbUpdates).eq("id", colId).then();
+        return {
+          ...prev,
+          columns: prev.columns.map((c) =>
+            c.id === colId ? { ...c, ...updates } : c
+          ),
+        };
+      });
     },
     []
   );
@@ -717,14 +674,22 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     );
   }, [board.columns]);
 
-  if (!mounted) {
-    return <div style={{ visibility: "hidden" }}>{children}</div>;
+  if (loading) {
+    return (
+      <div
+        className="flex items-center justify-center"
+        style={{ minHeight: "100vh", color: "var(--text-muted)" }}
+      >
+        <span>Laden...</span>
+      </div>
+    );
   }
 
   return (
     <BoardContext.Provider
       value={{
         board,
+        loading,
         addCard,
         updateCard,
         deleteCard,
