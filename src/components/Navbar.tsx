@@ -12,6 +12,11 @@ const navItems = [
   { label: "Tasks", href: "/tasks", icon: "📋" },
 ];
 
+const commitAuthor = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_AUTHOR_LOGIN || "lokal";
+const commitDate = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_AUTHOR_DATE
+  ? new Date(process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_AUTHOR_DATE).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+  : null;
+
 export default function Navbar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
@@ -87,8 +92,9 @@ export default function Navbar() {
                 backgroundColor: "var(--bg-tertiary)",
                 color: "var(--text-muted)",
               }}
+              title={commitDate ? `Deploy: ${commitAuthor}, ${commitDate}` : `${commitAuthor}`}
             >
-              v0.1.0
+              v0.1.0 · {commitAuthor}{commitDate ? `, ${commitDate}` : ""}
             </span>
             <button
               onClick={toggleTheme}
