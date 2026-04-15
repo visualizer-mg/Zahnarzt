@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/context/ThemeContext";
-import { BoardProvider } from "@/context/BoardContext";
-import Navbar from "@/components/Navbar";
+import { AuthProvider } from "@/context/AuthContext";
+import AuthGuard from "@/components/AuthGuard";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,10 +36,9 @@ export default function RootLayout({
         style={{ backgroundColor: "var(--bg-primary)" }}
       >
         <ThemeProvider>
-          <BoardProvider>
-            <Navbar />
-            <main className="flex-1">{children}</main>
-          </BoardProvider>
+          <AuthProvider>
+            <AuthGuard>{children}</AuthGuard>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

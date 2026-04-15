@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "@/context/ThemeContext";
+import { useAuth } from "@/context/AuthContext";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: "📊" },
@@ -14,6 +15,7 @@ const navItems = [
 export default function Navbar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
+  const { user, signOut } = useAuth();
   const isSettings = pathname === "/einstellungen";
 
   return (
@@ -118,6 +120,25 @@ export default function Navbar() {
             >
               ⚙️
             </Link>
+            <button
+              onClick={signOut}
+              className="p-2 rounded-md transition-colors text-sm"
+              style={{
+                backgroundColor: "transparent",
+                color: "var(--text-muted)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "var(--bg-tertiary)";
+                e.currentTarget.style.color = "var(--red, #f85149)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.color = "var(--text-muted)";
+              }}
+              title={user?.email || "Abmelden"}
+            >
+              🚪
+            </button>
           </div>
         </div>
       </div>
