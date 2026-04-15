@@ -22,9 +22,13 @@ export default function EinstellungenPage() {
   const [newColColor, setNewColColor] = useState("#8b949e");
   const [newSprint, setNewSprint] = useState("");
 
+  const columns = board?.columns || [];
+  const sprints = board?.sprints || [];
+  const team = board?.team || [];
+
   const handleAddMember = () => {
     const name = newMember.trim();
-    if (name && !(board.team || []).includes(name)) {
+    if (name && !team.includes(name)) {
       addTeamMember(name);
       setNewMember("");
     }
@@ -34,7 +38,7 @@ export default function EinstellungenPage() {
     const label = newColLabel.trim();
     if (!label) return;
     const id = label.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    if (board.columns.some((c) => c.id === id)) return;
+    if (columns.some((c) => c.id === id)) return;
     addColumn({ id, label, icon: newColIcon || "📋", color: newColColor });
     setNewColLabel("");
     setNewColIcon("");
@@ -43,7 +47,7 @@ export default function EinstellungenPage() {
 
   const handleAddSprint = () => {
     const name = newSprint.trim();
-    if (name && !board.sprints.includes(name)) {
+    if (name && !sprints.includes(name)) {
       addSprint(name);
       setNewSprint("");
     }
@@ -135,7 +139,7 @@ export default function EinstellungenPage() {
         </p>
 
         <div className="space-y-2 mb-4">
-          {board.columns.map((col) => {
+          {columns.map((col) => {
             const isSystem = col.id === "backlog" || col.id === "done";
             return (
               <div
@@ -250,7 +254,7 @@ export default function EinstellungenPage() {
         </h2>
 
         <div className="space-y-2 mb-4">
-          {board.sprints.map((sprint) => (
+          {sprints.map((sprint) => (
             <div
               key={sprint}
               className="flex items-center justify-between px-3 py-2 rounded-md"
@@ -332,7 +336,7 @@ export default function EinstellungenPage() {
         </p>
 
         <div className="space-y-2 mb-4">
-          {(board.team || []).map((member) => (
+          {team.map((member) => (
             <div
               key={member}
               className="flex items-center justify-between px-3 py-2 rounded-md"
@@ -363,7 +367,7 @@ export default function EinstellungenPage() {
               </button>
             </div>
           ))}
-          {(board.team || []).length === 0 && (
+          {team.length === 0 && (
             <p
               className="text-sm italic"
               style={{ color: "var(--text-muted)" }}
