@@ -1,29 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { Card, Column } from "@/context/BoardContext";
+import { Card, useBoard } from "@/context/BoardContext";
 import KanbanBoard from "@/components/tasks/KanbanBoard";
 import ListView from "@/components/tasks/ListView";
 import SprintsView from "@/components/tasks/SprintsView";
+import BacklogView from "@/components/tasks/BacklogView";
 import CardModal from "@/components/tasks/CardModal";
 import NotePanel from "@/components/tasks/NotePanel";
 
-type View = "kanban" | "list" | "sprints";
+type View = "kanban" | "list" | "sprints" | "backlog";
 
 const VIEWS: { key: View; label: string; icon: string }[] = [
   { key: "kanban", label: "Kanban", icon: "▦" },
   { key: "list", label: "Liste", icon: "☰" },
   { key: "sprints", label: "Sprints", icon: "🏃" },
+  { key: "backlog", label: "Backlog", icon: "📥" },
 ];
 
 function TasksContent() {
+  const { board } = useBoard();
   const [view, setView] = useState<View>("kanban");
   const [modalCard, setModalCard] = useState<Card | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalColumn, setModalColumn] = useState<Column>("todo");
+  const [modalColumn, setModalColumn] = useState<string>("todo");
   const [noteCard, setNoteCard] = useState<Card | null>(null);
 
-  const handleNewCard = (column: Column) => {
+  const cards = board?.cards || [];
+  const backlogCount = cards.filter(
+    (c) => c.column === "backlog" && !c.archived
+  ).length;
+
+  const handleNewCard = (column: string) => {
     setModalCard(null);
     setModalColumn(column);
     setModalOpen(true);
@@ -67,7 +75,7 @@ function TasksContent() {
             <button
               key={v.key}
               onClick={() => setView(v.key)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors relative"
               style={{
                 backgroundColor:
                   view === v.key
@@ -81,6 +89,18 @@ function TasksContent() {
             >
               <span>{v.icon}</span>
               <span>{v.label}</span>
+              {v.key === "backlog" && backlogCount > 0 && (
+                <span
+                  className="text-xs px-1 py-0 rounded-full ml-1"
+                  style={{
+                    backgroundColor: "var(--bg-primary)",
+                    color: "var(--text-muted)",
+                    fontSize: "10px",
+                  }}
+                >
+                  {backlogCount}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -98,12 +118,21 @@ function TasksContent() {
         <ListView
           onEditCard={handleEditCard}
           onOpenNote={handleOpenNote}
+          onNewCard={handleNewCard}
         />
       )}
       {view === "sprints" && (
         <SprintsView
           onEditCard={handleEditCard}
           onOpenNote={handleOpenNote}
+          onNewCard={handleNewCard}
+        />
+      )}
+      {view === "backlog" && (
+        <BacklogView
+          onEditCard={handleEditCard}
+          onOpenNote={handleOpenNote}
+          onNewCard={handleNewCard}
         />
       )}
 

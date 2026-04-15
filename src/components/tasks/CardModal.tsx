@@ -3,29 +3,40 @@
 import { useState, useEffect } from "react";
 import {
   Card,
-  Column,
   Priority,
   CardColor,
+  CardType,
   CardLink,
+  Subtask,
   COLOR_MAP,
   PRIORITY_COLORS,
-  COLUMNS,
+  TYPE_COLORS,
+  TYPE_LABELS,
   useBoard,
 } from "@/context/BoardContext";
 
 interface CardModalProps {
-  card: Card | null; // null = new card
-  defaultColumn: Column;
+  card: Card | null;
+  defaultColumn: string;
   onClose: () => void;
 }
 
 const COLORS: { key: CardColor | ""; label: string }[] = [
   { key: "", label: "Keine" },
-  { key: "green", label: "Grün" },
+  { key: "green", label: "Gruen" },
   { key: "blue", label: "Blau" },
   { key: "purple", label: "Lila" },
   { key: "orange", label: "Orange" },
-  { key: "white", label: "Weiß" },
+  { key: "white", label: "Weiss" },
+];
+
+const CARD_TYPES: { key: CardType | ""; label: string }[] = [
+  { key: "", label: "Kein Typ" },
+  { key: "feature", label: "Feature" },
+  { key: "bug", label: "Bug" },
+  { key: "content", label: "Content" },
+  { key: "design", label: "Design" },
+  { key: "research", label: "Research" },
 ];
 
 export default function CardModal({
@@ -39,16 +50,16 @@ export default function CardModal({
   const [title, setTitle] = useState(card?.title || "");
   const [description, setDescription] = useState(card?.description || "");
   const [area, setArea] = useState(card?.area || "");
-  const [priority, setPriority] = useState<Priority>(
-    card?.priority || "medium"
-  );
-  const [column, setColumn] = useState<Column>(card?.column || defaultColumn);
+  const [priority, setPriority] = useState<Priority>(card?.priority || "medium");
+  const [column, setColumn] = useState<string>(card?.column || defaultColumn);
   const [sprint, setSprint] = useState(card?.sprint || "");
   const [creator, setCreator] = useState(card?.creator || board.team?.[0] || "");
   const [color, setColor] = useState<CardColor | "">(card?.color || "");
+  const [type, setType] = useState<CardType | "">(card?.type || "");
   const [links, setLinks] = useState<CardLink[]>(card?.links || []);
+  const [subtasks, setSubtasks] = useState<Subtask[]>(card?.subtasks || []);
+  const [newSubtask, setNewSubtask] = useState("");
 
-  // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -60,40 +71,48 @@ export default function CardModal({
   const handleSave = () => {
     if (!title.trim()) return;
 
+    const cardData = {
+      title: title.trim(),
+      description: description.trim(),
+      area: area.trim(),
+      priority,
+      column,
+      sprint,
+      creator,
+      color,
+      type,
+      links: links.filter((l) => l.label && l.url),
+      subtasks,
+    };
+
     if (isEdit && card) {
-      updateCard(card.id, {
-        title: title.trim(),
-        description: description.trim(),
-        area: area.trim(),
-        priority,
-        column,
-        sprint,
-        creator,
-        color,
-        links: links.filter((l) => l.label && l.url),
-      });
+      updateCard(card.id, cardData);
     } else {
       addCard({
-        title: title.trim(),
-        description: description.trim(),
-        area: area.trim(),
-        priority,
-        column,
-        sprint,
-        creator,
-        color,
+        ...cardData,
         note: "",
-        links: links.filter((l) => l.label && l.url),
+        noteFile: null,
       });
     }
     onClose();
   };
 
+  // Link helpers
   const addLink = () => setLinks([...links, { label: "", url: "" }]);
-  const removeLink = (i: number) =>
-    setLinks(links.filter((_, idx) => idx !== i));
+  const removeLink = (i: number) => setLinks(links.filter((_, idx) => idx !== i));
   const updateLink = (i: number, field: "label" | "url", value: string) =>
     setLinks(links.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
+
+  // Subtask helpers
+  const handleAddSubtask = () => {
+    const t = newSubtask.trim();
+    if (!t) return;
+    setSubtasks([...subtasks, { id: `st_${Date.now()}`, title: t, done: false }]);
+    setNewSubtask("");
+  };
+  const toggleSt = (id: string) =>
+    setSubtasks(subtasks.map((s) => (s.id === id ? { ...s, done: !s.done } : s)));
+  const removeSt = (id: string) => setSubtasks(subtasks.filter((s) => s.id !== id));
 
   const inputStyle = {
     backgroundColor: "var(--bg-tertiary)",
@@ -124,21 +143,19 @@ export default function CardModal({
             className="text-lg font-semibold"
             style={{ color: "var(--text-primary)" }}
           >
-            {isEdit ? "Karte bearbeiten" : "Neue Karte"}
+            {isEdit ? `#${card.ticketId} bearbeiten` : "Neue Karte"}
           </h2>
           <button
             onClick={onClose}
             className="text-xl px-2"
             style={{ color: "var(--text-muted)" }}
           >
-            ×
+            x
           </button>
         </div>
 
         {/* Body */}
-        <div
-          className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto"
-        >
+        <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
           {/* Title */}
           <div>
             <label
@@ -176,8 +193,28 @@ export default function CardModal({
             />
           </div>
 
-          {/* Area + Column row */}
+          {/* Type + Area row */}
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label
+                className="block text-xs font-medium mb-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Typ
+              </label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as CardType | "")}
+                className="w-full px-3 py-2 rounded-md border text-sm"
+                style={inputStyle}
+              >
+                {CARD_TYPES.map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label
                 className="block text-xs font-medium mb-1"
@@ -194,6 +231,10 @@ export default function CardModal({
                 placeholder="z.B. Frontend"
               />
             </div>
+          </div>
+
+          {/* Column + Sprint */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label
                 className="block text-xs font-medium mb-1"
@@ -203,13 +244,34 @@ export default function CardModal({
               </label>
               <select
                 value={column}
-                onChange={(e) => setColumn(e.target.value as Column)}
+                onChange={(e) => setColumn(e.target.value)}
                 className="w-full px-3 py-2 rounded-md border text-sm"
                 style={inputStyle}
               >
-                {COLUMNS.map((c) => (
-                  <option key={c.key} value={c.key}>
-                    {c.label}
+                {board.columns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.icon} {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label
+                className="block text-xs font-medium mb-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Sprint
+              </label>
+              <select
+                value={sprint}
+                onChange={(e) => setSprint(e.target.value)}
+                className="w-full px-3 py-2 rounded-md border text-sm"
+                style={inputStyle}
+              >
+                <option value="">Kein Sprint</option>
+                {board.sprints.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
                   </option>
                 ))}
               </select>
@@ -222,7 +284,7 @@ export default function CardModal({
               className="block text-xs font-medium mb-1"
               style={{ color: "var(--text-secondary)" }}
             >
-              Priorität
+              Prioritaet
             </label>
             <div className="flex gap-3">
               {(["high", "medium", "low"] as Priority[]).map((p) => (
@@ -261,29 +323,8 @@ export default function CardModal({
             </div>
           </div>
 
-          {/* Sprint + Creator */}
+          {/* Creator + Color row */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label
-                className="block text-xs font-medium mb-1"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Sprint
-              </label>
-              <select
-                value={sprint}
-                onChange={(e) => setSprint(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border text-sm"
-                style={inputStyle}
-              >
-                <option value="">Kein Sprint</option>
-                {board.sprints.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div>
               <label
                 className="block text-xs font-medium mb-1"
@@ -304,35 +345,105 @@ export default function CardModal({
                 ))}
               </select>
             </div>
+            <div>
+              <label
+                className="block text-xs font-medium mb-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Farbe
+              </label>
+              <div className="flex gap-2 pt-1">
+                {COLORS.map((c) => (
+                  <button
+                    key={c.key}
+                    onClick={() => setColor(c.key)}
+                    className="w-7 h-7 rounded-full border-2 transition-transform"
+                    style={{
+                      backgroundColor: c.key
+                        ? COLOR_MAP[c.key as CardColor].hex
+                        : "var(--bg-tertiary)",
+                      borderColor:
+                        color === c.key
+                          ? "var(--text-primary)"
+                          : "transparent",
+                      transform: color === c.key ? "scale(1.2)" : "scale(1)",
+                    }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* Color */}
+          {/* Subtasks */}
           <div>
             <label
               className="block text-xs font-medium mb-1"
               style={{ color: "var(--text-secondary)" }}
             >
-              Farbe
+              Subtasks ({subtasks.filter((s) => s.done).length}/{subtasks.length})
             </label>
-            <div className="flex gap-2">
-              {COLORS.map((c) => (
-                <button
-                  key={c.key}
-                  onClick={() => setColor(c.key)}
-                  className="w-7 h-7 rounded-full border-2 transition-transform"
-                  style={{
-                    backgroundColor: c.key
-                      ? COLOR_MAP[c.key as CardColor].hex
-                      : "var(--bg-tertiary)",
-                    borderColor:
-                      color === c.key
-                        ? "var(--text-primary)"
-                        : "transparent",
-                    transform: color === c.key ? "scale(1.2)" : "scale(1)",
-                  }}
-                  title={c.label}
-                />
+            <div className="space-y-1 mb-2">
+              {subtasks.map((st) => (
+                <div
+                  key={st.id}
+                  className="flex items-center gap-2 px-2 py-1 rounded"
+                  style={{ backgroundColor: "var(--bg-tertiary)" }}
+                >
+                  <button
+                    onClick={() => toggleSt(st.id)}
+                    className="w-4 h-4 rounded border flex items-center justify-center text-xs flex-shrink-0"
+                    style={{
+                      borderColor: st.done ? "var(--green)" : "var(--border)",
+                      backgroundColor: st.done ? "var(--green)" : "transparent",
+                      color: "#fff",
+                    }}
+                  >
+                    {st.done ? "✓" : ""}
+                  </button>
+                  <span
+                    className="flex-1 text-sm"
+                    style={{
+                      color: st.done
+                        ? "var(--text-muted)"
+                        : "var(--text-primary)",
+                      textDecoration: st.done ? "line-through" : "none",
+                    }}
+                  >
+                    {st.title}
+                  </span>
+                  <button
+                    onClick={() => removeSt(st.id)}
+                    className="text-xs px-1"
+                    style={{ color: "var(--red)" }}
+                  >
+                    x
+                  </button>
+                </div>
               ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newSubtask}
+                onChange={(e) => setNewSubtask(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddSubtask();
+                  }
+                }}
+                className="flex-1 px-2 py-1 rounded border text-sm"
+                style={inputStyle}
+                placeholder="Subtask hinzufuegen..."
+              />
+              <button
+                onClick={handleAddSubtask}
+                className="text-xs px-2 py-1 rounded"
+                style={{ color: "var(--accent)" }}
+              >
+                +
+              </button>
             </div>
           </div>
 
@@ -367,7 +478,7 @@ export default function CardModal({
                   className="px-2 text-sm"
                   style={{ color: "var(--red)" }}
                 >
-                  ×
+                  x
                 </button>
               </div>
             ))}
@@ -376,7 +487,7 @@ export default function CardModal({
               className="text-xs"
               style={{ color: "var(--accent)" }}
             >
-              + Link hinzufügen
+              + Link hinzufuegen
             </button>
           </div>
         </div>

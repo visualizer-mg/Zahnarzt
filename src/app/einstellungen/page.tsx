@@ -2,12 +2,25 @@
 
 import { useState } from "react";
 import { useTheme } from "@/context/ThemeContext";
-import { useBoard } from "@/context/BoardContext";
+import { useBoard, ColumnDef } from "@/context/BoardContext";
 
 export default function EinstellungenPage() {
   const { theme, setTheme } = useTheme();
-  const { board, addTeamMember, removeTeamMember } = useBoard();
+  const {
+    board,
+    addTeamMember,
+    removeTeamMember,
+    addColumn,
+    removeColumn,
+    updateColumn,
+    addSprint,
+    removeSprint,
+  } = useBoard();
   const [newMember, setNewMember] = useState("");
+  const [newColLabel, setNewColLabel] = useState("");
+  const [newColIcon, setNewColIcon] = useState("");
+  const [newColColor, setNewColColor] = useState("#8b949e");
+  const [newSprint, setNewSprint] = useState("");
 
   const handleAddMember = () => {
     const name = newMember.trim();
@@ -15,6 +28,31 @@ export default function EinstellungenPage() {
       addTeamMember(name);
       setNewMember("");
     }
+  };
+
+  const handleAddColumn = () => {
+    const label = newColLabel.trim();
+    if (!label) return;
+    const id = label.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    if (board.columns.some((c) => c.id === id)) return;
+    addColumn({ id, label, icon: newColIcon || "📋", color: newColColor });
+    setNewColLabel("");
+    setNewColIcon("");
+    setNewColColor("#8b949e");
+  };
+
+  const handleAddSprint = () => {
+    const name = newSprint.trim();
+    if (name && !board.sprints.includes(name)) {
+      addSprint(name);
+      setNewSprint("");
+    }
+  };
+
+  const inputStyle = {
+    backgroundColor: "var(--bg-tertiary)",
+    borderColor: "var(--border)",
+    color: "var(--text-primary)",
   };
 
   return (
@@ -46,7 +84,6 @@ export default function EinstellungenPage() {
         >
           Darstellung
         </h2>
-
         <div className="flex gap-4">
           {(["dark", "light"] as const).map((mode) => (
             <button
@@ -55,11 +92,8 @@ export default function EinstellungenPage() {
               className="flex-1 rounded-lg border p-4 text-center transition-colors"
               style={{
                 backgroundColor:
-                  theme === mode
-                    ? "var(--bg-tertiary)"
-                    : "var(--bg-primary)",
-                borderColor:
-                  theme === mode ? "var(--accent)" : "var(--border)",
+                  theme === mode ? "var(--bg-tertiary)" : "var(--bg-primary)",
+                borderColor: theme === mode ? "var(--accent)" : "var(--border)",
                 borderWidth: theme === mode ? "2px" : "1px",
               }}
             >
@@ -69,16 +103,210 @@ export default function EinstellungenPage() {
               <span
                 className="text-sm font-medium"
                 style={{
-                  color:
-                    theme === mode
-                      ? "var(--accent)"
-                      : "var(--text-secondary)",
+                  color: theme === mode ? "var(--accent)" : "var(--text-secondary)",
                 }}
               >
                 {mode === "dark" ? "Dark Mode" : "Light Mode"}
               </span>
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Board Columns */}
+      <div
+        className="rounded-lg border p-6 mb-6"
+        style={{
+          backgroundColor: "var(--bg-secondary)",
+          borderColor: "var(--border)",
+        }}
+      >
+        <h2
+          className="text-lg font-semibold mb-4"
+          style={{ color: "var(--text-primary)" }}
+        >
+          Board-Spalten
+        </h2>
+        <p
+          className="text-sm mb-4"
+          style={{ color: "var(--text-muted)" }}
+        >
+          Spalten konfigurieren. &quot;Backlog&quot; und &quot;Done&quot; sind System-Spalten.
+        </p>
+
+        <div className="space-y-2 mb-4">
+          {board.columns.map((col) => {
+            const isSystem = col.id === "backlog" || col.id === "done";
+            return (
+              <div
+                key={col.id}
+                className="flex items-center gap-3 px-3 py-2 rounded-md"
+                style={{
+                  backgroundColor: "var(--bg-tertiary)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <span
+                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: col.color }}
+                />
+                <span className="text-sm">{col.icon}</span>
+                <span
+                  className="text-sm font-medium flex-1"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {col.label}
+                </span>
+                <span
+                  className="text-xs"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {col.id}
+                </span>
+                {isSystem ? (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded"
+                    style={{
+                      color: "var(--text-muted)",
+                      backgroundColor: "var(--bg-secondary)",
+                    }}
+                  >
+                    System
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (confirm(`Spalte "${col.label}" entfernen? Karten werden in Backlog verschoben.`)) {
+                        removeColumn(col.id);
+                      }
+                    }}
+                    className="text-xs px-2 py-1 rounded transition-colors"
+                    style={{
+                      color: "var(--red)",
+                      backgroundColor: "var(--bg-secondary)",
+                    }}
+                  >
+                    Entfernen
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Add Column */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newColLabel}
+            onChange={(e) => setNewColLabel(e.target.value)}
+            className="flex-1 px-3 py-2 rounded-md border text-sm"
+            style={inputStyle}
+            placeholder="Spaltenname..."
+          />
+          <input
+            type="text"
+            value={newColIcon}
+            onChange={(e) => setNewColIcon(e.target.value)}
+            className="w-16 px-3 py-2 rounded-md border text-sm text-center"
+            style={inputStyle}
+            placeholder="Icon"
+          />
+          <input
+            type="color"
+            value={newColColor}
+            onChange={(e) => setNewColColor(e.target.value)}
+            className="w-10 h-10 rounded-md border cursor-pointer"
+            style={{ borderColor: "var(--border)" }}
+          />
+          <button
+            onClick={handleAddColumn}
+            disabled={!newColLabel.trim()}
+            className="px-4 py-2 rounded-md text-sm font-medium"
+            style={{
+              backgroundColor: newColLabel.trim() ? "var(--accent)" : "var(--bg-tertiary)",
+              color: newColLabel.trim() ? "#ffffff" : "var(--text-muted)",
+              cursor: newColLabel.trim() ? "pointer" : "not-allowed",
+            }}
+          >
+            Hinzufuegen
+          </button>
+        </div>
+      </div>
+
+      {/* Sprints */}
+      <div
+        className="rounded-lg border p-6 mb-6"
+        style={{
+          backgroundColor: "var(--bg-secondary)",
+          borderColor: "var(--border)",
+        }}
+      >
+        <h2
+          className="text-lg font-semibold mb-4"
+          style={{ color: "var(--text-primary)" }}
+        >
+          Sprints
+        </h2>
+
+        <div className="space-y-2 mb-4">
+          {board.sprints.map((sprint) => (
+            <div
+              key={sprint}
+              className="flex items-center justify-between px-3 py-2 rounded-md"
+              style={{
+                backgroundColor: "var(--bg-tertiary)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <span
+                className="text-sm font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {sprint}
+              </span>
+              <button
+                onClick={() => {
+                  if (confirm(`Sprint "${sprint}" entfernen?`)) {
+                    removeSprint(sprint);
+                  }
+                }}
+                className="text-xs px-2 py-1 rounded transition-colors"
+                style={{
+                  color: "var(--red)",
+                  backgroundColor: "var(--bg-secondary)",
+                }}
+              >
+                Entfernen
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newSprint}
+            onChange={(e) => setNewSprint(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAddSprint();
+            }}
+            className="flex-1 px-3 py-2 rounded-md border text-sm"
+            style={inputStyle}
+            placeholder="Sprint-Name..."
+          />
+          <button
+            onClick={handleAddSprint}
+            disabled={!newSprint.trim()}
+            className="px-4 py-2 rounded-md text-sm font-medium"
+            style={{
+              backgroundColor: newSprint.trim() ? "var(--accent)" : "var(--bg-tertiary)",
+              color: newSprint.trim() ? "#ffffff" : "var(--text-muted)",
+              cursor: newSprint.trim() ? "pointer" : "not-allowed",
+            }}
+          >
+            Hinzufuegen
+          </button>
         </div>
       </div>
 
@@ -100,10 +328,9 @@ export default function EinstellungenPage() {
           className="text-sm mb-4"
           style={{ color: "var(--text-muted)" }}
         >
-          Mitglieder können bei Tasks als Ersteller ausgewählt werden.
+          Mitglieder koennen bei Tasks als Ersteller ausgewaehlt werden.
         </p>
 
-        {/* Member List */}
         <div className="space-y-2 mb-4">
           {(board.team || []).map((member) => (
             <div
@@ -122,11 +349,7 @@ export default function EinstellungenPage() {
               </span>
               <button
                 onClick={() => {
-                  if (
-                    confirm(
-                      `"${member}" aus dem Team entfernen?`
-                    )
-                  ) {
+                  if (confirm(`"${member}" aus dem Team entfernen?`)) {
                     removeTeamMember(member);
                   }
                 }}
@@ -145,12 +368,11 @@ export default function EinstellungenPage() {
               className="text-sm italic"
               style={{ color: "var(--text-muted)" }}
             >
-              Noch keine Team-Mitglieder hinzugefügt.
+              Noch keine Team-Mitglieder hinzugefuegt.
             </p>
           )}
         </div>
 
-        {/* Add Member */}
         <div className="flex gap-2">
           <input
             type="text"
@@ -160,11 +382,7 @@ export default function EinstellungenPage() {
               if (e.key === "Enter") handleAddMember();
             }}
             className="flex-1 px-3 py-2 rounded-md border text-sm"
-            style={{
-              backgroundColor: "var(--bg-tertiary)",
-              borderColor: "var(--border)",
-              color: "var(--text-primary)",
-            }}
+            style={inputStyle}
             placeholder="Name eingeben..."
           />
           <button
@@ -172,36 +390,14 @@ export default function EinstellungenPage() {
             disabled={!newMember.trim()}
             className="px-4 py-2 rounded-md text-sm font-medium"
             style={{
-              backgroundColor: newMember.trim()
-                ? "var(--accent)"
-                : "var(--bg-tertiary)",
+              backgroundColor: newMember.trim() ? "var(--accent)" : "var(--bg-tertiary)",
               color: newMember.trim() ? "#ffffff" : "var(--text-muted)",
               cursor: newMember.trim() ? "pointer" : "not-allowed",
             }}
           >
-            Hinzufügen
+            Hinzufuegen
           </button>
         </div>
-      </div>
-
-      {/* Praxis Info (Placeholder) */}
-      <div
-        className="rounded-lg border p-6 mb-6"
-        style={{
-          backgroundColor: "var(--bg-secondary)",
-          borderColor: "var(--border)",
-        }}
-      >
-        <h2
-          className="text-lg font-semibold mb-4"
-          style={{ color: "var(--text-primary)" }}
-        >
-          Praxis-Informationen
-        </h2>
-        <p style={{ color: "var(--text-muted)" }}>
-          Hier können später Praxis-Name, Anzahl Behandler und
-          Arbeitsstunden konfiguriert werden.
-        </p>
       </div>
 
       {/* App Info */}
@@ -216,12 +412,12 @@ export default function EinstellungenPage() {
           className="text-lg font-semibold mb-4"
           style={{ color: "var(--text-primary)" }}
         >
-          Über die App
+          Ueber die App
         </h2>
         <div className="space-y-2">
           <div className="flex justify-between">
             <span style={{ color: "var(--text-secondary)" }}>Version</span>
-            <span style={{ color: "var(--text-primary)" }}>v0.0.5</span>
+            <span style={{ color: "var(--text-primary)" }}>v0.1.0</span>
           </div>
           <div className="flex justify-between">
             <span style={{ color: "var(--text-secondary)" }}>Framework</span>
@@ -232,6 +428,10 @@ export default function EinstellungenPage() {
             <span style={{ color: "var(--text-primary)" }}>
               GitHub Dark (Obsidian)
             </span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: "var(--text-secondary)" }}>Task System</span>
+            <span style={{ color: "var(--text-primary)" }}>v2 (Dynamic Columns)</span>
           </div>
         </div>
       </div>

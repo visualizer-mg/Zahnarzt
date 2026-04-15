@@ -9,12 +9,12 @@ const navItems = [
   { label: "Analyse", href: "/analyse", icon: "📈" },
   { label: "Import", href: "/import", icon: "📁" },
   { label: "Tasks", href: "/tasks", icon: "📋" },
-  { label: "Einstellungen", href: "/einstellungen", icon: "⚙️" },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
+  const isSettings = pathname === "/einstellungen";
 
   return (
     <nav
@@ -77,8 +77,8 @@ export default function Navbar() {
             })}
           </div>
 
-          {/* Theme Toggle + Version */}
-          <div className="flex items-center gap-3">
+          {/* Theme Toggle + Settings + Version */}
+          <div className="flex items-center gap-2">
             <span
               className="text-xs px-2 py-0.5 rounded"
               style={{
@@ -86,7 +86,7 @@ export default function Navbar() {
                 color: "var(--text-muted)",
               }}
             >
-              v0.0.5
+              v0.1.0
             </span>
             <button
               onClick={toggleTheme}
@@ -103,6 +103,21 @@ export default function Navbar() {
             >
               {theme === "dark" ? "☀️" : "🌙"}
             </button>
+            <Link
+              href="/einstellungen"
+              className="p-2 rounded-md transition-colors"
+              style={{
+                backgroundColor: isSettings
+                  ? "var(--bg-tertiary)"
+                  : "transparent",
+                color: isSettings
+                  ? "var(--text-primary)"
+                  : "var(--text-secondary)",
+              }}
+              title="Einstellungen"
+            >
+              ⚙️
+            </Link>
           </div>
         </div>
       </div>
