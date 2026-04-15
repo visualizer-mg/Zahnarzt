@@ -4,22 +4,31 @@ import {
   Card,
   COLOR_MAP,
   PRIORITY_COLORS,
+  TYPE_COLORS,
+  TYPE_LABELS,
   CardColor,
+  CardType,
   useBoard,
 } from "@/context/BoardContext";
+
 
 interface TaskCardProps {
   card: Card;
   onEdit: (card: Card) => void;
   onOpenNote: (card: Card) => void;
+  onDragStart?: (cardId: string) => void;
 }
 
-export default function TaskCard({ card, onEdit, onOpenNote }: TaskCardProps) {
-  const { deleteCard, getCardNumber } = useBoard();
-  const num = getCardNumber(card.id);
+export default function TaskCard({ card, onEdit, onOpenNote, onDragStart }: TaskCardProps) {
+  const { deleteCard, archiveCard, toggleDone, moveCard } = useBoard();
   const colorStyle = card.color
     ? COLOR_MAP[card.color as CardColor]
     : null;
+
+  const subtasksDone = card.subtasks?.filter((s) => s.done).length || 0;
+  const subtasksTotal = card.subtasks?.length || 0;
+  const subtaskProgress =
+    subtasksTotal > 0 ? (subtasksDone / subtasksTotal) * 100 : 0;
 
   return (
     <div
@@ -27,47 +36,97 @@ export default function TaskCard({ card, onEdit, onOpenNote }: TaskCardProps) {
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", card.id);
         e.dataTransfer.effectAllowed = "move";
+        onDragStart?.(card.id);
       }}
-      className="rounded-md p-3 mb-2 cursor-grab active:cursor-grabbing transition-all hover:brightness-110 group"
+      onClick={() => onEdit(card)}
+      className="rounded-md p-3 mb-2 cursor-pointer active:cursor-grabbing transition-all hover:brightness-110 group"
       style={{
         backgroundColor: colorStyle?.bg || "var(--bg-tertiary)",
         border: `1px solid ${colorStyle?.border || "var(--border)"}`,
         borderLeft: `3px solid ${colorStyle?.hex || "var(--border)"}`,
+        opacity: card.column === "done" ? 0.7 : 1,
       }}
     >
-      {/* Top row: number + priority + actions */}
+      {/* Top row: done checkbox + number + priority + type + actions */}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
+          {/* Done Checkbox */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleDone(card.id);
+            }}
+            className="w-3.5 h-3.5 rounded border flex items-center justify-center text-xs flex-shrink-0"
+            style={{
+              borderColor: card.column === "done" ? "var(--green)" : "var(--border)",
+              backgroundColor: card.column === "done" ? "var(--green)" : "transparent",
+              color: "#fff",
+              borderRadius: "3px",
+            }}
+            title={card.column === "done" ? "Erledigt" : "Als erledigt markieren"}
+          >
+            {card.column === "done" ? "✓" : ""}
+          </button>
           <span
             className="text-xs font-mono"
             style={{ color: "var(--text-muted)" }}
           >
-            #{num}
+            #{card.ticketId}
           </span>
           <span
             className="w-2 h-2 rounded-full inline-block"
             style={{ backgroundColor: PRIORITY_COLORS[card.priority] }}
             title={card.priority}
           />
+          {/* Type Badge */}
+          {card.type && (
+            <span
+              className="text-xs px-1.5 py-0.5 rounded font-medium"
+              style={{
+                backgroundColor: `${TYPE_COLORS[card.type as CardType]}15`,
+                color: TYPE_COLORS[card.type as CardType],
+              }}
+            >
+              {TYPE_LABELS[card.type as CardType]}
+            </span>
+          )}
         </div>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* Backlog button - only show if not already in backlog */}
+          {card.column !== "backlog" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                moveCard(card.id, "backlog");
+              }}
+              className="text-xs px-1.5 py-0.5 rounded"
+              title="Ins Backlog verschieben"
+              style={{
+                color: "var(--text-secondary)",
+                backgroundColor: "var(--bg-secondary)",
+              }}
+            >
+              ↓
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onEdit(card);
+              archiveCard(card.id);
             }}
             className="text-xs px-1.5 py-0.5 rounded"
+            title="Archivieren"
             style={{
-              color: "var(--text-secondary)",
+              color: "var(--amber)",
               backgroundColor: "var(--bg-secondary)",
             }}
           >
-            Edit
+            📦
           </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`"${card.title}" wirklich löschen?`)) {
+              if (confirm(`"${card.title}" dauerhaft loeschen?`)) {
                 deleteCard(card.id);
               }
             }}
@@ -77,16 +136,18 @@ export default function TaskCard({ card, onEdit, onOpenNote }: TaskCardProps) {
               backgroundColor: "var(--bg-secondary)",
             }}
           >
-            ×
+            x
           </button>
         </div>
       </div>
 
       {/* Title */}
       <p
-        className="text-sm font-medium mb-1 cursor-pointer"
-        style={{ color: "var(--text-primary)" }}
-        onClick={() => onOpenNote(card)}
+        className="text-sm font-medium mb-1"
+        style={{
+          color: "var(--text-primary)",
+          textDecoration: card.column === "done" ? "line-through" : "none",
+        }}
       >
         {card.title}
       </p>
@@ -107,7 +168,34 @@ export default function TaskCard({ card, onEdit, onOpenNote }: TaskCardProps) {
         </p>
       )}
 
-      {/* Bottom row: area, sprint, creator, date */}
+      {/* Subtask Progress Bar */}
+      {subtasksTotal > 0 && (
+        <div className="mb-2">
+          <div className="flex items-center gap-2 mb-0.5">
+            <div
+              className="flex-1 h-1.5 rounded-full overflow-hidden"
+              style={{ backgroundColor: "var(--bg-secondary)" }}
+            >
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${subtaskProgress}%`,
+                  backgroundColor:
+                    subtaskProgress === 100 ? "var(--green)" : "var(--accent)",
+                }}
+              />
+            </div>
+            <span
+              className="text-xs"
+              style={{ color: "var(--text-muted)" }}
+            >
+              {subtasksDone}/{subtasksTotal}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom row: area, sprint, creator, date, links */}
       <div className="flex flex-wrap items-center gap-1.5">
         {card.area && (
           <span
@@ -148,7 +236,6 @@ export default function TaskCard({ card, onEdit, onOpenNote }: TaskCardProps) {
             {card.creator}
           </span>
         )}
-        {/* Links as gold chips */}
         {card.links?.map((link, i) => (
           <a
             key={i}
