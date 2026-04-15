@@ -335,7 +335,29 @@ interface BoardContextType {
   getActiveColumns: () => ColumnDef[];
 }
 
-const BoardContext = createContext<BoardContextType>({} as BoardContextType);
+const noop = (() => {}) as never;
+const BoardContext = createContext<BoardContextType>({
+  board: { sprints: [], columns: [], nextTicketId: 1, cards: [], team: [] },
+  addCard: noop,
+  updateCard: noop,
+  deleteCard: noop,
+  moveCard: noop,
+  archiveCard: noop,
+  restoreCard: noop,
+  toggleDone: noop,
+  addSubtask: noop,
+  toggleSubtask: noop,
+  removeSubtask: noop,
+  addSprint: noop,
+  removeSprint: noop,
+  addTeamMember: noop,
+  removeTeamMember: noop,
+  moveCardToPosition: noop,
+  addColumn: noop,
+  removeColumn: noop,
+  updateColumn: noop,
+  getActiveColumns: () => [],
+});
 
 // ── Provider ───────────────────────────────────────────
 
