@@ -40,7 +40,7 @@ export default function Navbar() {
             style={{ color: "var(--accent)" }}
           >
             <span>🦷</span>
-            <span>Zahnarzt Umsatzanalyse V0.11</span>
+            <span>Zahnarzt Umsatzanalyse V0.12</span>
           </Link>
 
           {/* Navigation Links */}
